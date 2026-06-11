@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>QuizMind</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --card: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #7c6af7;
+      --accent-dim: #4a3fb5;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #f0f0f5;
+      --muted: #888899;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0 env(safe-area-inset-bottom);
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; width: 100%; max-width: 520px; padding: 24px 20px; }
+    .screen.active { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    /* ── Header ── */
+    .logo {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .logo span { color: var(--accent); }
+    .tagline { text-align: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 40px; }
+
+    /* ── Input screen ── */
+    #screen-input { justify-content: center; gap: 0; }
+    .input-label { font-size: 1rem; font-weight: 600; margin-bottom: 10px; }
+    .input-hint  { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; }
+
+    textarea {
+      width: 100%;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 1rem;
+      padding: 14px 16px;
+      resize: none;
+      outline: none;
+      min-height: 90px;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(.97); opacity: .85; }
+    .btn-primary { background: var(--accent); color: #fff; margin-top: 16px; }
+    .btn-ghost   { background: var(--card); color: var(--text); border: 1.5px solid var(--border); }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 0.85rem;
+      margin-top: 10px;
+      min-height: 20px;
+    }
+
+    /* ── Loading screen ── */
+    #screen-loading {
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      text-align: center;
+    }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Quiz screen ── */
+    #screen-quiz { gap: 0; }
+
+    .quiz-header { margin-bottom: 20px; }
+    .quiz-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .quiz-domain { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .8px; }
+    .quiz-counter { font-size: 0.85rem; color: var(--muted); }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width .4s ease;
+    }
+
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.5;
+      margin: 24px 0 20px;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 12px; }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .option:active { background: #222232; }
+    .option.correct { border-color: var(--green); background: rgba(34,197,94,.08); }
+    .option.wrong   { border-color: var(--red);   background: rgba(239,68,68,.08);  }
+    .option.dimmed  { opacity: .45; }
+
+    .option-letter {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .option.correct .option-letter { background: var(--green); color: #fff; }
+    .option.wrong   .option-letter { background: var(--red);   color: #fff; }
+
+    .option-text { font-size: 0.95rem; line-height: 1.4; padding-top: 4px; }
+
+    /* Feedback box */
+    .feedback {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      display: none;
+    }
+    .feedback.correct { background: rgba(34,197,94,.1);  border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+    .feedback.wrong   { background: rgba(239,68,68,.1);  border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+    .feedback strong  { display: block; margin-bottom: 4px; }
+
+    .next-btn-wrap { margin-top: 24px; }
+
+    /* ── Score screen ── */
+    #screen-score { justify-content: center; align-items: center; gap: 0; text-align: center; }
+
+    .score-ring {
+      position: relative;
+      width: 140px; height: 140px;
+      margin: 0 auto 24px;
+    }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring circle {
+      fill: none;
+      stroke-width: 10;
+    }
+    .ring-bg    { stroke: var(--border); }
+    .ring-fill  { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+    .score-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .score-number { font-size: 2rem; font-weight: 800; }
+    .score-pct    { font-size: 0.85rem; color: var(--muted); }
+
+    .score-title   { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; }
+    .score-subject { font-size: 0.85rem; color: var(--muted); margin-bottom: 32px; }
+    .score-msg     { font-size: 1rem; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
+
+    .score-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+  </style>
+</head>
+<body>
+
+<!-- ── INPUT ── -->
+<section id="screen-input" class="screen active">
+  <div class="logo">Quiz<span>Mind</span></div>
+  <p class="tagline">Learn anything, one question at a time.</p>
+
+  <p class="input-label">What do you want to learn?</p>
+  <p class="input-hint">Enter a topic, a book title, or even a question.</p>
+
+  <textarea id="topic-input" rows="3"
+    placeholder="e.g. World War II, Sapiens by Harari, How does DNA replication work?"
+  ></textarea>
+
+  <p class="error-msg" id="input-error"></p>
+  <button class="btn btn-primary" id="start-btn">Generate 20 questions &rarr;</button>
+</section>
+
+<!-- ── LOADING ── -->
+<section id="screen-loading" class="screen">
+  <div class="spinner"></div>
+  <p class="loading-text" id="loading-text">Generating your quiz…</p>
+</section>
+
+<!-- ── QUIZ ── -->
+<section id="screen-quiz" class="screen">
+  <div class="quiz-header">
+    <div class="quiz-meta">
+      <span class="quiz-domain" id="quiz-domain"></span>
+      <span class="quiz-counter" id="quiz-counter"></span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <p class="question-text" id="question-text"></p>
+
+  <div class="options" id="options-list"></div>
+
+  <div class="feedback" id="feedback"></div>
+
+  <div class="next-btn-wrap">
+    <button class="btn btn-primary" id="next-btn" style="display:none" ></button>
+  </div>
+</section>
+
+<!-- ── SCORE ── -->
+<section id="screen-score" class="screen">
+  <div class="score-ring">
+    <svg width="140" height="140" viewBox="0 0 140 140">
+      <circle class="ring-bg"   cx="70" cy="70" r="60" />
+      <circle class="ring-fill" cx="70" cy="70" r="60"
+        stroke-dasharray="377"
+        stroke-dashoffset="377"
+        id="ring-fill"
+      />
+    </svg>
+    <div class="score-label">
+      <span class="score-number" id="score-number"></span>
+      <span class="score-pct"    id="score-pct"></span>
+    </div>
+  </div>
+
+  <h2 class="score-title" id="score-title"></h2>
+  <p  class="score-subject" id="score-subject"></p>
+  <p  class="score-msg"     id="score-msg"></p>
+
+  <div class="score-btns">
+    <button class="btn btn-primary" id="retry-btn">Try same topic again</button>
+    <button class="btn btn-ghost"   id="new-btn">New topic</button>
+  </div>
+</section>
+
+<script>
+  /* ── State ── */
+  let quiz = null;
+  let current = 0;
+  let score = 0;
+  let answered = false;
+
+  /* ── Helpers ── */
+  const $ = id => document.getElementById(id);
+
+  function show(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    $(id).classList.add("active");
+  }
+
+  /* ── Start ── */
+  $("start-btn").addEventListener("click", startQuiz);
+  $("topic-input").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); startQuiz(); }
+  });
+
+  async function startQuiz() {
+    const topic = $("topic-input").value.trim();
+    if (!topic) { $("input-error").textContent = "Please enter a topic."; return; }
+    $("input-error").textContent = "";
+
+    show("screen-loading");
+    $("loading-text").textContent = "Generating your quiz…";
+
+    try {
+      const res  = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        show("screen-input");
+        $("input-error").textContent = data.error || "Something went wrong.";
+        return;
+      }
+
+      quiz    = data;
+      current = 0;
+      score   = 0;
+      renderQuestion();
+      show("screen-quiz");
+    } catch {
+      show("screen-input");
+      $("input-error").textContent = "Network error — please try again.";
+    }
+  }
+
+  /* ── Quiz ── */
+  function renderQuestion() {
+    answered = false;
+    const q   = quiz.questions[current];
+    const tot = quiz.questions.length;
+
+    $("quiz-domain").textContent  = quiz.domain;
+    $("quiz-counter").textContent = `${current + 1} / ${tot}`;
+    $("progress-fill").style.width = `${((current) / tot) * 100}%`;
+    $("question-text").textContent = q.question;
+
+    const list = $("options-list");
+    list.innerHTML = "";
+    ["A","B","C","D"].forEach(letter => {
+      const btn = document.createElement("div");
+      btn.className  = "option";
+      btn.dataset.letter = letter;
+      btn.innerHTML = `
+        <div class="option-letter">${letter}</div>
+        <div class="option-text">${q.options[letter]}</div>
+      `;
+      btn.addEventListener("click", () => selectAnswer(letter));
+      list.appendChild(btn);
+    });
+
+    const fb = $("feedback");
+    fb.style.display = "none";
+    fb.className = "feedback";
+
+    const nb = $("next-btn");
+    nb.style.display = "none";
+  }
+
+  function selectAnswer(chosen) {
+    if (answered) return;
+    answered = true;
+
+    const q       = quiz.questions[current];
+    const correct = q.correct.toUpperCase();
+    const isRight = chosen === correct;
+    if (isRight) score++;
+
+    // Colour options
+    document.querySelectorAll(".option").forEach(opt => {
+      const l = opt.dataset.letter;
+      if (l === correct)      opt.classList.add("correct");
+      else if (l === chosen)  opt.classList.add("wrong");
+      else                    opt.classList.add("dimmed");
+    });
+
+    // Feedback
+    const fb = $("feedback");
+    fb.style.display = "block";
+    if (isRight) {
+      fb.className = "feedback correct";
+      fb.innerHTML = `<strong>Correct!</strong>${q.explanation}`;
+    } else {
+      fb.className = "feedback wrong";
+      fb.innerHTML = `<strong>Incorrect — the answer is ${correct}.</strong>${q.explanation}`;
+    }
+
+    // Next / Finish button
+    const nb = $("next-btn");
+    nb.style.display = "flex";
+    const isLast = current === quiz.questions.length - 1;
+    nb.textContent = isLast ? "See my results" : "Next question →";
+    nb.onclick = isLast ? showScore : nextQuestion;
+  }
+
+  function nextQuestion() {
+    current++;
+    renderQuestion();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ── Score ── */
+  function showScore() {
+    const tot = quiz.questions.length;
+    const pct = Math.round((score / tot) * 100);
+
+    $("score-number").textContent = `${score}/${tot}`;
+    $("score-pct").textContent    = `${pct}%`;
+    $("score-subject").textContent = quiz.subject;
+
+    let title, msg;
+    if (pct >= 90)      { title = "Outstanding!";  msg = "You've mastered this topic. Impressive!"; }
+    else if (pct >= 70) { title = "Well done!";    msg = "Solid understanding — a little more practice and you'll ace it."; }
+    else if (pct >= 50) { title = "Good effort!";  msg = "You've got the basics. Keep studying to fill the gaps."; }
+    else                { title = "Keep going!";   msg = "Learning takes time — try again and you'll see improvement."; }
+
+    $("score-title").textContent = title;
+    $("score-msg").textContent   = msg;
+
+    show("screen-score");
+
+    // Animate ring
+    const circumference = 377;
+    setTimeout(() => {
+      $("ring-fill").style.strokeDashoffset = circumference - (pct / 100) * circumference;
+    }, 100);
+  }
+
+  $("retry-btn").addEventListener("click", () => {
+    current = 0; score = 0;
+    renderQuestion();
+    show("screen-quiz");
+  });
+
+  $("new-btn").addEventListener("click", () => {
+    $("topic-input").value = "";
+    $("input-error").textContent = "";
+    show("screen-input");
+  });
+</script>
+</body>
+</html>
