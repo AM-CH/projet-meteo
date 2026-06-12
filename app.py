@@ -8,7 +8,7 @@ app = Flask(__name__)
 PROMPT_TEMPLATE = """You are an expert teacher. The user has provided this input: "{topic}"
 
 1. Infer the domain of knowledge (e.g. history, biology, literature, programming, philosophy...).
-2. Generate exactly 20 multiple-choice questions to test knowledge on that subject.
+2. Generate exactly 5 multiple-choice questions to test knowledge on that subject.
 
 Respond with ONLY a valid JSON object (no markdown, no commentary) in this exact structure:
 {{
