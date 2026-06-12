@@ -1,7 +1,7 @@
 import os
 import json
 import anthropic
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response, stream_with_context
 
 app = Flask(__name__)
 
@@ -53,25 +53,44 @@ def generate():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY is not configured on the server."}), 500
 
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        messages=[{"role": "user", "content": PROMPT_TEMPLATE.format(topic=topic)}],
+    def event_stream():
+        client = anthropic.Anthropic(api_key=api_key)
+        full_text = ""
+        try:
+            with client.messages.stream(
+                model="claude-sonnet-4-6",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": PROMPT_TEMPLATE.format(topic=topic)}],
+            ) as stream:
+                for text in stream.text_stream:
+                    full_text += text
+                    yield ": ping\n\n"  # SSE keepalive — prevents proxy/nginx timeouts
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            return
+
+        try:
+            quiz = json.loads(full_text)
+        except json.JSONDecodeError:
+            start = full_text.find("{")
+            end = full_text.rfind("}") + 1
+            if start != -1 and end > start:
+                try:
+                    quiz = json.loads(full_text[start:end])
+                except Exception:
+                    yield f"data: {json.dumps({'error': 'Failed to parse quiz. Please try again.'})}\n\n"
+                    return
+            else:
+                yield f"data: {json.dumps({'error': 'Failed to parse quiz. Please try again.'})}\n\n"
+                return
+
+        yield f"data: {json.dumps(quiz)}\n\n"
+
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-    raw = message.content[0].text.strip()
-    try:
-        quiz = json.loads(raw)
-    except json.JSONDecodeError:
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        if start != -1 and end > start:
-            quiz = json.loads(raw[start:end])
-        else:
-            return jsonify({"error": "Failed to parse quiz response. Please try again."}), 500
-
-    return jsonify(quiz)
 
 
 if __name__ == "__main__":

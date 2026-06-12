@@ -326,24 +326,49 @@
     $("loading-text").textContent = "Generating your quiz…";
 
     try {
-      const res  = await fetch("/api/generate", {
+      const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic })
       });
-      const data = await res.json();
 
       if (!res.ok) {
+        const data = await res.json();
         show("screen-input");
         $("input-error").textContent = data.error || "Something went wrong.";
         return;
       }
 
-      quiz    = data;
-      current = 0;
-      score   = 0;
-      renderQuestion();
-      show("screen-quiz");
+      // Read the SSE stream — server sends ": ping" keepalives then "data: {...}"
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by double newline
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop(); // keep any incomplete trailing chunk
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue; // skip keepalive comments
+          const payload = JSON.parse(part.slice(6));
+          if (payload.error) {
+            show("screen-input");
+            $("input-error").textContent = payload.error;
+            return;
+          }
+          quiz    = payload;
+          current = 0;
+          score   = 0;
+          renderQuestion();
+          show("screen-quiz");
+          return;
+        }
+      }
     } catch {
       show("screen-input");
       $("input-error").textContent = "Network error — please try again.";
